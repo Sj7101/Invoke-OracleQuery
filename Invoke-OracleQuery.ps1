@@ -4,38 +4,50 @@ function Invoke-OracleQuery {
         [string]$ConnectionString,
         
         [Parameter(Mandatory = $true)]
-        [string]$Query
+        [string]$Query,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$PasswordFilePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$KeyFilePath
     )
 
     # Load the Oracle Data Provider assembly
-    Write-Host "Loading Assembly DLL"
-    $assemblyPath = "C:\path\to\Oracle.ManagedDataAccess.dll"
+    $assemblyPath = "C:\oracle\product\12.1.0\client_1\ODP.NET\managed\common\Oracle.ManagedDataAccess.dll"
     if (-Not (Test-Path $assemblyPath)) {
         throw "Oracle.ManagedDataAccess.dll not found at '$assemblyPath'. Please update the path."
     }
-
     [void][Reflection.Assembly]::LoadFile($assemblyPath)
 
+    # Load the encrypted password from the .txt file
+    if (-Not (Test-Path $PasswordFilePath)) {
+        throw "Password file not found at '$PasswordFilePath'."
+    }
+    if (-Not (Test-Path $KeyFilePath)) {
+        throw "Key file not found at '$KeyFilePath'."
+    }
+    $securePasswordString = Get-Content -Path $PasswordFilePath | ConvertTo-SecureString -Key (Get-Content -Path $KeyFilePath -Raw)
+    $password = [System.Net.NetworkCredential]::new('', $securePasswordString).Password
+
+    # Add password to the connection string
+    $connectionStringWithPassword = "$ConnectionString;Password=$password"
+
     # Create a new Oracle connection
-    Write-Host "Creating Oracle Connection"
-    $connection = New-Object Oracle.ManagedDataAccess.Client.OracleConnection($ConnectionString)
+    $connection = New-Object Oracle.ManagedDataAccess.Client.OracleConnection($connectionStringWithPassword)
 
     try {
-        Write-Host "Opening Oracle Connection"
         $connection.Open()
 
         # Create a new Oracle command
-        Write-Host "Creating Oracle Command"
         $command = $connection.CreateCommand()
         $command.CommandText = $Query
 
         # Execute the command
-        Write-Host "Executing Oracle command"
         $reader = $command.ExecuteReader()
 
         $results = @()
 
-        Write-Host "Building PSCustomObj with returned data"
         while ($reader.Read()) {
             $row = [PSCustomObject]@{}
 
@@ -54,33 +66,19 @@ function Invoke-OracleQuery {
         Write-Error "An error occurred: $_"
     }
     finally {
-        Write-Host "Closing connection"
-        $connection.Close()
+        if ($connection.State -eq 'Open') {
+            $connection.Close()
+        }
     }
 }
 
-# Load the Oracle Data Provider for .NET
-#Add-Type -Path "C:\Oracle\ODP.NET\bin\4\Oracle.DataAccess.dll"
+# Usage Example:
+$connectionString = "User Id=zlrepmon;Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=danuxz9200si.domain.com)(PORT=3203))(CONNECT_DATA=(SERVICE_NAME=u11msgzl_uat)))"
+$query = "SELECT employee_id, first_name, last_name FROM employees WHERE department_id = 10"
+$passwordFilePath = "C:\path\to\password.txt"
+$keyFilePath = "C:\path\to\keyfile.key"
 
-# Connection string variables
-$oracleServer = "your_oracle_server"
-$oraclePort = "1521"  # Default port for Oracle
-$oracleSID = "your_SID"
-$oracleUser = "your_username"
-$oraclePassword = "your_password"
-
-# Construct the connection string
-$connectionString = "Data Source=(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=$oracleServer)(PORT=$oraclePort)))(CONNECT_DATA=(SERVER=DEDICATED)(SID=$oracleSID)));User Id=$oracleUser;Password=$oraclePassword;"
-
-
-# Define your Oracle connection string
-#$connectionString = "User Id=your_username;Password=your_password;Data Source=your_datasource"
-
-# Define your SQL query
-$sqlQuery = "SELECT * FROM your_table"
-
-# Invoke the function
-$results = Invoke-OracleQuery -ConnectionString $connectionString -Query $sqlQuery
+$results = Invoke-OracleQuery -ConnectionString $connectionString -Query $query -PasswordFilePath $passwordFilePath -KeyFilePath $keyFilePath
 
 # Display the results
 $results | Format-Table -AutoSize
