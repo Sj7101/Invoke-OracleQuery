@@ -14,16 +14,16 @@ function Invoke-OracleQuery {
     )
 
     # Load the Oracle Data Provider assembly
-    $assemblyPath = "C:\oracle\product\12.1.0\client_1\ODP.NET\managed\common\Oracle.ManagedDataAccess.dll"
+    $assemblyPath = "D:\apps\oracle\ODAC_64\odp.net\4\Oracle.DataAccess.dll"
     if (-Not (Test-Path $assemblyPath)) {
-        throw "Oracle.ManagedDataAccess.dll not found at '$assemblyPath'. Please update the path."
+        throw "Oracle.DataAccess.dll not found at '$assemblyPath'. Please update the path."
     }
 
     try {
-        # Try loading the assembly using Reflection
+        # Load the assembly using LoadFile
         [System.Reflection.Assembly]::LoadFile($assemblyPath) | Out-Null
     } catch {
-        throw "Failed to load Oracle.ManagedDataAccess.dll from '$assemblyPath'. Error: $_"
+        throw "Failed to load Oracle.DataAccess.dll from '$assemblyPath'. Error: $_"
     }
 
     # Load the encrypted password from the .txt file
@@ -41,7 +41,7 @@ function Invoke-OracleQuery {
 
     # Create a new Oracle connection
     try {
-        $connection = New-Object Oracle.ManagedDataAccess.Client.OracleConnection($connectionStringWithPassword)
+        $connection = New-Object Oracle.DataAccess.Client.OracleConnection($connectionStringWithPassword)
     } catch {
         throw "Failed to create Oracle connection. Verify if the assembly was loaded properly. Error: $_"
     }
@@ -81,6 +81,18 @@ function Invoke-OracleQuery {
         }
     }
 }
+
+# Usage Example:
+$connectionString = "User Id=zlrepmon;Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=danuxz9200si.domain.com)(PORT=3203))(CONNECT_DATA=(SERVICE_NAME=u11msgzl_uat)))"
+$query = "SELECT employee_id, first_name, last_name FROM employees WHERE department_id = 10"
+$passwordFilePath = "C:\path\to\password.txt"
+$keyFilePath = "C:\path\to\keyfile.key"
+
+$results = Invoke-OracleQuery -ConnectionString $connectionString -Query $query -PasswordFilePath $passwordFilePath -KeyFilePath $keyFilePath
+
+# Display the results
+$results | Format-Table -AutoSize
+
 
 # Usage Example:
 $connectionString = "User Id=zlrepmon;Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=danuxz9200si.domain.com)(PORT=3203))(CONNECT_DATA=(SERVICE_NAME=u11msgzl_uat)))"
