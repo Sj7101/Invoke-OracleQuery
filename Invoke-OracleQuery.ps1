@@ -82,3 +82,32 @@ $results = Invoke-OracleQuery -ConnectionString $connectionString -Query $query 
 
 # Display the results
 $results | Format-Table -AutoSize
+
+
+<#
+
+# Path to the DLL
+$DllPath = "C:\Path\To\Your\File.dll"
+
+try {
+    Write-Output "Loading COM assembly..."
+    $comObject = New-Object -ComObject $DllPath
+    Write-Output "COM assembly successfully registered."
+} catch {
+    Write-Error "Failed to register COM assembly: $_"
+}
+
+
+
+
+OraProvCfg.exe /action:config  /force /product:odp /frameworkversion:v4.0.30319 /providerpath:%ORACLE_CLIENT_HOME%\odp.net\bin\4\Oracle.DataAccess.dll
+
+OraProvCfg.exe /action:gac /providerpath:%ORACLE_CLIENT_HOME%\odp.net\bin\4\Oracle.DataAccess.dll
+
+OraProvCfg.exe /action:gac /providerpath:%ORACLE_CLIENT_HOME%\odp.net\PublisherPolicy\4\Policy.4.112.Oracle.DataAccess.dll
+
+OraProvCfg.exe /action:gac /providerpath:%ORACLE_CLIENT_HOME%\odp.net\PublisherPolicy\4\Policy.4.121.Oracle.DataAccess.dll
+
+OraProvCfg.exe /action:gac /providerpath:%ORACLE_CLIENT_HOME%\odp.net\PublisherPolicy\4\Policy.4.122.Oracle.DataAccess.dll
+
+#>
