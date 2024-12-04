@@ -18,7 +18,13 @@ function Invoke-OracleQuery {
     if (-Not (Test-Path $assemblyPath)) {
         throw "Oracle.ManagedDataAccess.dll not found at '$assemblyPath'. Please update the path."
     }
-    [void][Reflection.Assembly]::LoadFile($assemblyPath)
+
+    try {
+        # Try loading the assembly using Reflection
+        [System.Reflection.Assembly]::LoadFile($assemblyPath) | Out-Null
+    } catch {
+        throw "Failed to load Oracle.ManagedDataAccess.dll from '$assemblyPath'. Error: $_"
+    }
 
     # Load the encrypted password from the .txt file
     if (-Not (Test-Path $PasswordFilePath)) {
@@ -27,14 +33,18 @@ function Invoke-OracleQuery {
     if (-Not (Test-Path $KeyFilePath)) {
         throw "Key file not found at '$KeyFilePath'."
     }
-    $securePasswordString = Get-Content -Path $PasswordFilePath | ConvertTo-SecureString -Key (Get-Content -Path $KeyFilePath -Raw)
+    $securePasswordString = Get-Content -Path $PasswordFilePath | ConvertTo-SecureString -Key (Get-Content -Path $KeyFilePath)
     $password = [System.Net.NetworkCredential]::new('', $securePasswordString).Password
 
     # Add password to the connection string
     $connectionStringWithPassword = "$ConnectionString;Password=$password"
 
     # Create a new Oracle connection
-    $connection = New-Object Oracle.ManagedDataAccess.Client.OracleConnection($connectionStringWithPassword)
+    try {
+        $connection = New-Object Oracle.ManagedDataAccess.Client.OracleConnection($connectionStringWithPassword)
+    } catch {
+        throw "Failed to create Oracle connection. Verify if the assembly was loaded properly. Error: $_"
+    }
 
     try {
         $connection.Open()
@@ -63,7 +73,7 @@ function Invoke-OracleQuery {
         return $results
     }
     catch {
-        Write-Error "An error occurred: $_"
+        Write-Error "An error occurred while executing the query: $_"
     }
     finally {
         if ($connection.State -eq 'Open') {
@@ -82,6 +92,7 @@ $results = Invoke-OracleQuery -ConnectionString $connectionString -Query $query 
 
 # Display the results
 $results | Format-Table -AutoSize
+
 
 
 <#
