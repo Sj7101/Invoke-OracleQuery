@@ -39,8 +39,8 @@
                 $rowProperties[$columnName] = $columnValue
             }
 
-            # Add the row properties to the collection of rows
-            $rows += [pscustomobject]$rowProperties
+            # Add the row properties to the collection of rows / comma , ensures PowerShell treats the object as an array element.
+            $rows += ,[pscustomobject]$rowProperties
         }
 
         $reader.Close()
