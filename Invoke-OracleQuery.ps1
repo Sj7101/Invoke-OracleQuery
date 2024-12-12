@@ -134,3 +134,66 @@ OraProvCfg.exe /action:gac /providerpath:%ORACLE_CLIENT_HOME%\odp.net\PublisherP
 OraProvCfg.exe /action:gac /providerpath:%ORACLE_CLIENT_HOME%\odp.net\PublisherPolicy\4\Policy.4.122.Oracle.DataAccess.dll
 
 #>
+
+
+<#
+# Example queries array with query text and query names
+$queries = @(
+    @{ QueryName = 'Query1'; QueryText = 'SELECT COUNT(*) AS Count FROM Employees' },
+    @{ QueryName = 'Query2'; QueryText = 'SELECT MAX(Salary) AS MaxSalary FROM Employees' },
+    @{ QueryName = 'Query3'; QueryText = 'SELECT DepartmentName FROM Departments WHERE DepartmentID = 1' }
+)
+
+# Function to execute queries and build a single PSCustomObject
+function Get-DatabaseResults {
+    param (
+        [Parameter(Mandatory)]
+        [string]$ConnectionString,
+        [Parameter(Mandatory)]
+        [array]$Queries
+    )
+
+    # Initialize the Oracle connection
+    $connection = New-Object Oracle.ManagedDataAccess.Client.OracleConnection($ConnectionString)
+    $connection.Open()
+
+    # Initialize a hashtable to build the PSCustomObject
+    $resultObject = @{}
+
+    # Iterate through each query
+    foreach ($query in $Queries) {
+        # Get the query name and text
+        $queryName = $query.QueryName
+        $queryText = $query.QueryText
+
+        # Create a command to execute the query
+        $command = $connection.CreateCommand()
+        $command.CommandText = $queryText
+
+        # Execute the query and get the result
+        $reader = $command.ExecuteReader()
+        
+        # Assume each query returns a single value or row; adjust logic as needed
+        if ($reader.Read()) {
+            # Assign the result to the hashtable with the query name as the property name
+            $resultObject[$queryName] = $reader.GetValue(0)
+        }
+
+        $reader.Close()
+    }
+
+    # Close the connection
+    $connection.Close()
+
+    # Convert the hashtable to a PSCustomObject and return it
+    return [pscustomobject]$resultObject
+}
+
+# Example usage
+$connectionString = "Your Oracle Connection String Here"
+$result = Get-DatabaseResults -ConnectionString $connectionString -Queries $queries
+
+# Output the result
+$result
+
+#>
