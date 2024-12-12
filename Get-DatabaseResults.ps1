@@ -26,8 +26,8 @@
         # Execute the query and get the result
         $reader = $command.ExecuteReader()
         
-        # Track whether multiple rows are returned
-        $rowIndex = 0
+        # Temporary storage for multiple rows
+        $rows = @()
 
         while ($reader.Read()) {
             $rowProperties = @{} # Temporarily store values for dynamic columns
@@ -39,16 +39,25 @@
                 $rowProperties[$columnName] = $columnValue
             }
 
-            # Handle multiple rows dynamically by appending an index to the property name
-            $propertySuffix = if ($rowIndex -eq 0 -and $reader.HasRows -eq $false) { '' } else { " :: Row $rowIndex" }
-            $propertyName = "$queryName$propertySuffix"
-
-            # Add the row properties to the result object
-            $resultObject[$propertyName] = [pscustomobject]$rowProperties
-            $rowIndex++
+            # Add the row properties to the collection of rows
+            $rows += [pscustomobject]$rowProperties
         }
 
         $reader.Close()
+
+        # Process single or multiple rows
+        if ($rows.Count -eq 1) {
+            # Single row, add it directly with QueryName as the property name
+            $resultObject[$queryName] = $rows[0]
+        } elseif ($rows.Count -gt 1) {
+            # Multiple rows, add each with "QueryName :: Status Code (value from Status)"
+            foreach ($row in $rows) {
+                # Construct the property name dynamically based on "Status"
+                $status = $row.Status # Replace "Status" with the actual column name if different
+                $propertyName = "$queryName :: Status Code $status"
+                $resultObject[$propertyName] = $row.Count # Replace "Count" with the actual value column
+            }
+        }
     }
 
     # Close the connection
