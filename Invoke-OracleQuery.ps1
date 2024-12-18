@@ -45,8 +45,17 @@ function Invoke-OracleQuery {
             $reader = $command.ExecuteReader()
 
             if ($reader.Read()) {
-                $value = $reader.GetValue(0)
-                $resultObject | Add-Member -MemberType NoteProperty -Name $queryName -Value $value
+                # Adjusting to skip blank items and retrieve meaningful results
+                $values = @()
+                for ($i = 0; $i -lt $reader.FieldCount; $i++) {
+                    $fieldValue = $reader.GetValue($i)
+                    if ($fieldValue -ne "" -and $fieldValue -ne $null) {
+                        $values += $fieldValue
+                    }
+                }
+                
+                # Use the last non-blank value as the result
+                $resultObject | Add-Member -MemberType NoteProperty -Name $queryName -Value ($values[-1])
             }
         }
 
