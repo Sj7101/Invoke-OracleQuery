@@ -1,0 +1,73 @@
+{
+	"AssemblyPath":"D:\\apps\\ODAC_64\\odp.net\\bin\\4\\Oracle.DataAccess.dll",
+	"DataBases":[
+		{
+			"DBName":"P18MSGZL",
+			"System":"CA2015",
+			"PasswordPath":"D:\\PowerShell\\TeamsAutomation\\PROD\\ZLRepMon-P18MSGZL\\cert\\svcpassPROD.txt",
+			"KeyPath":"D:\\PowerShell\\TeamsAutomation\\PROD\\ZLRepMon-P18MSGZL\\cert\\svcaes.key",
+			"ConnectionString":"User ID=zlrepmon;Data Source=(DESCRIPTION=(ADDRESS=(PROTOCALL=TCP)(HOST=danpxi9690si.wellsfargo.com)(PORT=3203))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=p19msgzl_prd)))",
+			"Queries":[
+				{
+					"QueryName":"Live Servers",
+					"Query":"select count(*) from pfuser.GLOBALCOORDCLUSTER"
+				},
+				{
+					"QueryName":"Queueing",
+					"Query":"select RFSCLUSTER \"Cluster\", RFSLOCALMACHINENAME \"Server\", RFSQUEUECOUNT \"Count\"\nfrom pfuser.ReceivedFileStore\nwhere RFSQUEUECOUNT > 500\norder by RFSLOCALMACHINENAME"
+				},
+				{
+					"QueryName":"MTA Monitor",
+					"Query":"select count(*) from pfuser.mtratranscript where mtatdate > sysdate-1/48"
+				},
+				{
+					"QueryName":"DBQueue Status 0",
+					"Query":"select rmstatus \"Status\", COUNT(*) \"Count\"\nFrom pfuser.zlpreceivedmail\nWhere rmstatus in (0)\nGroup by rmstatus\nOrder by rmstatus"
+				},
+				{
+					"QueryName":"DBQueue Status  284",
+					"Query":"select rmstatus \"Status\", COUNT(*) \"Count\"\nFrom pfuser.zlpreceivedmail\nWhere rmstatus in (284)\nGroup by rmstatus\nOrder by rmstatus"
+				},
+				{
+					"QueryName":"DBQueue Status 286",
+					"Query":"select rmstatus \"Status\", COUNT(*) \"Count\"\nFrom pfuser.zlpreceivedmail\nWhere rmstatus in (286)\nGroup by rmstatus\nOrder by rmstatus"
+				},
+				{
+					"QueryName":"DBQueue Status 5000",
+					"Query":"select rmstatus \"Status\", COUNT(*) \"Count\"\nFrom pfuser.zlpreceivedmail\nWhere rmstatus in (5000)\nGroup by rmstatus\nOrder by rmstatus"
+				},
+				{
+					"QueryName":"DocStatus 1002_Messages",
+					"Query":"select count(*) from pfuser.indexdocretry where DOCSTATUS=1002"
+				},
+				{
+					"QueryName":"Active Search Partition Count",
+					"Query":"select max(seldoccount) from pfuser.searchengineload where selinstanceid = 9166390"
+				},
+				{
+					"QueryName":"DataBase Free Space",
+					"Query":"select\n    --b.con_ID||' ' con_id,\n    b.name, vi.host_name, vi.instance_name ,\n    TO_NUMBER(b.total_size)/1024/1024/1024 pdb_total_size_oracle_GB,\n    TO_NUMBER(a.max_pdb_storage_val)/1024/1024/1024 MAX_PDB_STORAGE_GB ,\n    (b.total_size/a.max_pdb_storage_val)*100 PDBPctFullOracle ,\n    TO_NUMBER(a.data_size+b.temp_size)/1024/1024/1024    SumDFSize_GB ,\n    ((a.data_size+b.temp_size)/a.max_pdb_storage_val)    *100 as PDBPctFullActual\nfrom\n\n    --database_properties a,\n    (select max(max_pdb_storage_val) as max_pdb_storage_val from (\n    select to_numbner(decode(property_value,'UNLIMITED',1,NULL,2, property_value)) max_pdb_storage_val\n    from database_properties where property_name ='MAX_PDB_STORAGE' union select 3 max_pdb_storage_val from dual\n    )) a,\n    v$pdbs b ,\n    (select sum(bytes) data_size from dba_data_files ) a ,\n    (select nvl(sum(bytes),0) temp__size from dba_temp_files ) b ,\n    v$instance vi"
+				}			
+			]
+		},
+		{
+			"DBName":"P17MSGZL",
+			"System":"AGE",
+			"PasswordPath":"D:\\PowerShell\\TeamsAutomation\\PROD\\ZLRepMon-P17MSGZL\\cert\\svcpassPROD.txt",
+			"KeyPath":"D:\\PowerShell\\TeamsAutomation\\PROD\\ZLRepMon-P17MSGZL\\cert\\svcaes.key",
+			"ConnectionString":"User ID=zlrepmon;Data Source=(DESCRIPTION=(ADDRESS=(PROTOCALL=TCP)(HOST=danpxi9770si.wellsfargo.com)(PORT=3203))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=p17msgzl_prd)))",
+			"Queries":[
+				{
+					"QueryName":"Live Servers",
+					"Query":"select count(*) from pfuser.GLOBALCOORDCLUSTER"
+				},
+				{
+					"QueryName":"DataBase Free Space",
+					"Query":"select\n    --b.con_ID||' ' con_id,\n    b.name, vi.host_name, vi.instance_name ,\n    TO_NUMBER(b.total_size)/1024/1024/1024 pdb_total_size_oracle_GB,\n    TO_NUMBER(a.max_pdb_storage_val)/1024/1024/1024 MAX_PDB_STORAGE_GB ,\n    (b.total_size/a.max_pdb_storage_val)*100 PDBPctFullOracle ,\n    TO_NUMBER(a.data_size+b.temp_size)/1024/1024/1024    SumDFSize_GB ,\n    ((a.data_size+b.temp_size)/a.max_pdb_storage_val)    *100 as PDBPctFullActual\nfrom\n\n    --database_properties a,\n    (select max(max_pdb_storage_val) as max_pdb_storage_val from (\n    select to_numbner(decode(property_value,'UNLIMITED',1,NULL,2, property_value)) max_pdb_storage_val\n    from database_properties where property_name ='MAX_PDB_STORAGE' union select 3 max_pdb_storage_val from dual\n    )) a,\n    v$pdbs b ,\n    (select sum(bytes) data_size from dba_data_files ) a ,\n    (select nvl(sum(bytes),0) temp__size from dba_temp_files ) b ,\n    v$instance vi"
+				}			
+			]
+		}
+	
+	
+	]
+}
