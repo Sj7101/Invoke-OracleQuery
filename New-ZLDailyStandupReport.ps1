@@ -118,15 +118,15 @@ function Populate-DatabaseQueryResults {
             $lastCol = $cols[-1]
             $value = $lastRow[$lastCol]
 
-            # If the value is null or empty, return $null to indicate no meaningful data
+            # If the value is null or empty, return 0
             if ([string]::IsNullOrEmpty($value)) {
-                $NewObject."$($query.QueryName)" = $null
+                $NewObject."$($query.QueryName)" = 0
             } else {
                 $NewObject."$($query.QueryName)" = $value
             }
         } else {
-            # No rows returned is a valid scenario with no data (e.g., empty queue)
-            $NewObject."$($query.QueryName)" = $null
+            # No rows returned is a valid scenario but no data, set to 0
+            $NewObject."$($query.QueryName)" = 0
         }
     }
 
@@ -135,6 +135,7 @@ function Populate-DatabaseQueryResults {
 
     return $NewObject
 }
+
 
 
 
