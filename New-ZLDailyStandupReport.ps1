@@ -62,7 +62,6 @@ function Populate-DatabaseQueryResults {
     # Add the password to the connection string
     $connectionStringWithPassword = "$($DBObject.ConnectionString);Password=$password"
 
-    # Create and open the connection
     $conn = New-Object Oracle.DataAccess.Client.OracleConnection($connectionStringWithPassword)
     try {
         $conn.Open()
@@ -70,79 +69,73 @@ function Populate-DatabaseQueryResults {
         throw "Failed to open connection to $($DBObject.DBName): $_"
     }
 
-    try {
-        foreach ($query in $DBObject.Queries) {
-            Write-Host "Running query '$($query.QueryName)' on $($DBObject.DBName)"
+    foreach ($query in $DBObject.Queries) {
+        $cmd = $conn.CreateCommand()
+        $cmd.CommandText = $query.Query
 
-            $cmd = $conn.CreateCommand()
-            $cmd.CommandText = $query.Query
+        $results = @()
+        $cols = @()
 
-            $results = @()
-            $cols = @()
+        try {
+            $reader = $cmd.ExecuteReader()
 
-            try {
-                $reader = $cmd.ExecuteReader()
-                $cols = for ($i=0; $i -lt $reader.FieldCount; $i++) {
-                    $reader.GetName($i)
+            # Get column names and rename empty ones if any
+            for ($i=0; $i -lt $reader.FieldCount; $i++) {
+                $colName = $reader.GetName($i)
+                if ([string]::IsNullOrWhiteSpace($colName)) {
+                    $colName = "Column$i"
                 }
+                $cols += $colName
+            }
 
-                while ($reader.Read()) {
-                    $row = @{}
-                    for ($i=0; $i -lt $reader.FieldCount; $i++) {
-                        if ($reader.IsDBNull($i)) {
-                            $value = $null
-                        } else {
-                            # Retrieve Oracle-specific value and convert to string
-                            $oracleVal = $reader.GetOracleValue($i)
-                            $value = $oracleVal.ToString()
-                        }
-                        $row[$cols[$i]] = $value
+            while ($reader.Read()) {
+                $row = @{}
+                for ($i=0; $i -lt $reader.FieldCount; $i++) {
+                    if ($reader.IsDBNull($i)) {
+                        $value = $null
+                    } else {
+                        $oracleVal = $reader.GetOracleValue($i)
+                        $value = $oracleVal.ToString()
                     }
-                    $results += $row
+                    $row[$cols[$i]] = $value
                 }
-                $reader.Close()
-            } catch {
-                Write-Error "Query execution failed for '$($query.QueryName)' on $($DBObject.DBName): $_"
-                # Set the property to indicate failure
-                $NewObject."$($query.QueryName)" = "failed to query host"
-                # Move to the next query since this one failed
-                continue
-            } finally {
-                $cmd.Dispose()
+                $results += $row
             }
 
-            # Now check the results
-            Write-Host "Rows returned for '$($query.QueryName)': $($results.Count)"
-            Write-Host "Columns returned: $($cols.Count) -> $($cols -join ', ')"
-
-            if ($results.Count -gt 0 -and $cols.Count -gt 0) {
-                $lastRow = $results[-1]
-                $lastCol = $cols[-1]
-                $value = $lastRow[$lastCol]
-
-                Write-Host "Last column value: '$value'"
-
-                # If the value is null or empty, treat as failed
-                if ([string]::IsNullOrEmpty($value)) {
-                    $NewObject."$($query.QueryName)" = "failed to query host"
-                } else {
-                    $NewObject."$($query.QueryName)" = $value
-                }
-            } else {
-                # No rows or no columns
-                Write-Host "No data returned or no columns found for '$($query.QueryName)'."
-                $NewObject."$($query.QueryName)" = "failed to query host"
-            }
+            $reader.Close()
+        } catch {
+            Write-Error "Query execution failed for '$($query.QueryName)' on $($DBObject.DBName): $_"
+            # True failure due to an exception
+            $NewObject."$($query.QueryName)" = "failed to query host"
+            continue
+        } finally {
+            $cmd.Dispose()
         }
-    } catch {
-        Write-Error "Error while processing queries for $($DBObject.DBName): $_"
-    } finally {
-        $conn.Close()
-        $conn.Dispose()
+
+        # Check the results
+        if ($results.Count -gt 0 -and $cols.Count -gt 0) {
+            $lastRow = $results[-1]
+            $lastCol = $cols[-1]
+            $value = $lastRow[$lastCol]
+
+            # If the value is null or empty, return $null to indicate no meaningful data
+            if ([string]::IsNullOrEmpty($value)) {
+                $NewObject."$($query.QueryName)" = $null
+            } else {
+                $NewObject."$($query.QueryName)" = $value
+            }
+        } else {
+            # No rows returned is a valid scenario with no data (e.g., empty queue)
+            $NewObject."$($query.QueryName)" = $null
+        }
     }
+
+    $conn.Close()
+    $conn.Dispose()
 
     return $NewObject
 }
+
 
 
 # Main logic: Iterate through each database and process it
