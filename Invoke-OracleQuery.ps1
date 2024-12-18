@@ -36,8 +36,9 @@ function Invoke-OracleQuery {
         $connection = New-Object Oracle.DataAccess.Client.OracleConnection($connectionStringWithPassword)
         $connection.Open()
 
-        foreach ($queryName in $queries.PSObject.Properties.Name) {
-            $query = $queries.$queryName
+        foreach ($queryItem in $queries) {
+            $queryName = $queryItem.QueryName
+            $query = $queryItem.Query
             $command = $connection.CreateCommand()
             $command.CommandText = $query
 
@@ -58,9 +59,3 @@ function Invoke-OracleQuery {
         }
     }
 }
-
-# Usage Example:
-$results = Invoke-OracleQuery -DBObject $SomeDBObject
-
-# Display the results
-$results | Format-Table -AutoSize
