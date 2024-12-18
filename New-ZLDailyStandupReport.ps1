@@ -122,19 +122,19 @@ function Populate-DatabaseQueryResults {
             $NewObject."$($query.QueryName)" = 0
         } else {
             if ($query.QueryName -eq "DataBase_Free_Space") {
+                # Parse the value using an invariant culture to avoid locale issues
                 $doubleValue = 0
-            if ([double]::TryParse($value, [ref]$doubleValue)) {
-                # Round the value to 2 decimals and then format it as a string with two decimal places
-                $roundedValue = [Math]::Round($doubleValue, 2)
-                $formattedValue = "{0:F2}" -f $roundedValue
-                $NewObject."$($query.QueryName)" = $formattedValue
+                if ([double]::TryParse($value, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$doubleValue)) {
+                    # Format directly with two decimal places, which also rounds
+                    $formattedValue = "{0:F2}" -f $doubleValue
+                    $NewObject."$($query.QueryName)" = $formattedValue
+                } else {
+                    # If parsing fails, set to "0.00"
+                    $NewObject."$($query.QueryName)" = "0.00"
+                }
             } else {
-                # If parsing fails, just set it to "0.00"
-                $NewObject."$($query.QueryName)" = "0.00"
-            }
-    } else {
-        $NewObject."$($query.QueryName)" = $value
-    }
+                $NewObject."$($query.QueryName)" = $value
+                }
             }
         } else {
             # No rows returned, set to 0 as a valid scenario
