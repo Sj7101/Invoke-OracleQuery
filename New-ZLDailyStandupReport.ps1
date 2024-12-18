@@ -118,14 +118,23 @@ function Populate-DatabaseQueryResults {
             $lastCol = $cols[-1]
             $value = $lastRow[$lastCol]
 
-            # If the value is null or empty, return 0
             if ([string]::IsNullOrEmpty($value)) {
                 $NewObject."$($query.QueryName)" = 0
             } else {
-                $NewObject."$($query.QueryName)" = $value
+                if ($query.QueryName -eq "DataBase Free Space") {
+                    $doubleValue = 0
+                    if ([double]::TryParse($value, [ref]$doubleValue)) {
+                        $roundedValue = [Math]::Round($doubleValue, 2)
+                        $NewObject."$($query.QueryName)" = $roundedValue
+                    } else {
+                        $NewObject."$($query.QueryName)" = 0
+                    }
+                } else {
+                    $NewObject."$($query.QueryName)" = $value
+                }
             }
         } else {
-            # No rows returned is a valid scenario but no data, set to 0
+            # No rows returned, set to 0 as a valid scenario
             $NewObject."$($query.QueryName)" = 0
         }
     }
@@ -135,6 +144,7 @@ function Populate-DatabaseQueryResults {
 
     return $NewObject
 }
+
 
 
 
