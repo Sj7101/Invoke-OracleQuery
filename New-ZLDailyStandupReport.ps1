@@ -64,7 +64,7 @@ function Populate-DatabaseQueryResults {
     )
 
     # Decrypt the password
-    $password = Get-DecryptedPassword -PasswordFilePath $DBObject.PasswordPath -KeyFilePath $DBObject.KeyPath
+    $password = Get-EncryptedPassword -PasswordFilePath $DBObject.PasswordPath -KeyFilePath $DBObject.KeyPath
 
     # Add the password to the connection string
     $connectionStringWithPassword = "$($DBObject.ConnectionString);Password=$password"
@@ -127,29 +127,10 @@ function Populate-DatabaseQueryResults {
 }
 
 
+foreach ($db in $Script:Config.DataBases) {
+    Write-Host "Connecting to Host $($db.DBName)"
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Add-Type -Path "D:\apps\ODAC_64\odp.net\bin\4\Oracle.DataAccess.dll"
-
+    $NewObject = New-DatabaseQueryObject -DBObject $db
+    $T = Populate-DatabaseQueryResults -DBObject $db -NewObject $NewObject
+    $T
+}
