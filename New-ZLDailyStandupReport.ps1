@@ -1,4 +1,9 @@
-﻿function New-DatabaseQueryObject {
+﻿# Load the config outside of the functions (already done presumably)
+# Example:
+# $Script:Config = Get-Content "$PSScriptRoot\config.json" -Raw | ConvertFrom-Json
+# Add-Type -Path $Script:Config.AssemblyPath
+
+function New-DatabaseQueryObject {
     param(
         [Parameter(Mandatory=$true)]
         $DBObject
@@ -17,15 +22,6 @@
 
     return $NewObject
 }
-
-# Example usage:
-# Assuming $Script:Config is already loaded from your JSON,
-# and you want to process the first database item:
-# $DBObject = $Script:Config.DataBases[0]
-# $resultObject = New-DatabaseQueryObject -DBObject $DBObject
-# $resultObject
-
-
 
 function Get-EncryptedPassword {
     param(
@@ -50,9 +46,6 @@ function Get-EncryptedPassword {
     $password = ([System.Net.NetworkCredential]::new('', $securePasswordString)).Password
     return $password
 }
-
-
-
 
 function Populate-DatabaseQueryResults {
     param(
@@ -91,13 +84,21 @@ function Populate-DatabaseQueryResults {
                     $reader.GetName($i)
                 }
 
-                while ($reader.Read()) {
-                    $row = @{}
-                    for ($i=0; $i -lt $reader.FieldCount; $i++) {
-                        $row[$cols[$i]] = $reader.GetValue($i)
+            while ($reader.Read()) {
+                $row = @{}
+                for ($i=0; $i -lt $reader.FieldCount; $i++) {
+                    if ($reader.IsDBNull($i)) {
+                        $value = $null
+                    } else {
+                        # Use GetOracleValue instead of GetValue
+                        $oracleVal = $reader.GetOracleValue($i)
+                        # Convert it to a string representation
+                        $value = $oracleVal.ToString()
                     }
-                    $results += $row
+                    $row[$cols[$i]] = $value
                 }
+                $results += $row
+            }
                 $reader.Close()
 
             } catch {
@@ -105,15 +106,14 @@ function Populate-DatabaseQueryResults {
             } finally {
                 $cmd.Dispose()
             }
-
             # Assigning the last column of the last row to the object property
             if ($results.Count -gt 0) {
                 $lastRow = $results[-1]
                 $lastCol = $cols[-1]
                 $NewObject."$($query.QueryName)" = $lastRow[$lastCol]
             } else {
-                # No results returned, so just set it to $null
-                $NewObject."$($query.QueryName)" = $null
+                # No results returned, so set it to "failed to query host"
+                $NewObject."$($query.QueryName)" = "failed to query host"
             }
         }
     } catch {
@@ -126,11 +126,11 @@ function Populate-DatabaseQueryResults {
     return $NewObject
 }
 
-
+# Main logic: Iterate through each database and process it
 foreach ($db in $Script:Config.DataBases) {
-    Write-Host "Connecting to Host $($db.DBName)"
-
+    Write-Host "Connecting to $($db.DBName)"
     $NewObject = New-DatabaseQueryObject -DBObject $db
     $T = Populate-DatabaseQueryResults -DBObject $db -NewObject $NewObject
+    # $T now contains the populated object with query results
     $T
 }
