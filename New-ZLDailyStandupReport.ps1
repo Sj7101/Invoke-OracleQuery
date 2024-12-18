@@ -112,26 +112,29 @@ function Populate-DatabaseQueryResults {
             $cmd.Dispose()
         }
 
-        # Check the results
-        if ($results.Count -gt 0 -and $cols.Count -gt 0) {
-            $lastRow = $results[-1]
-            $lastCol = $cols[-1]
-            $value = $lastRow[$lastCol]
-
-            if ([string]::IsNullOrEmpty($value)) {
-                $NewObject."$($query.QueryName)" = 0
+    # Check the results
+    if ($results.Count -gt 0 -and $cols.Count -gt 0) {
+        $lastRow = $results[-1]
+        $lastCol = $cols[-1]
+        $value = $lastRow[$lastCol]
+    
+        if ([string]::IsNullOrEmpty($value)) {
+            $NewObject."$($query.QueryName)" = 0
+        } else {
+            if ($query.QueryName -eq "DataBase_Free_Space") {
+                $doubleValue = 0
+            if ([double]::TryParse($value, [ref]$doubleValue)) {
+                # Round the value to 2 decimals and then format it as a string with two decimal places
+                $roundedValue = [Math]::Round($doubleValue, 2)
+                $formattedValue = "{0:F2}" -f $roundedValue
+                $NewObject."$($query.QueryName)" = $formattedValue
             } else {
-                if ($query.QueryName -eq "DataBase Free Space") {
-                    $doubleValue = 0
-                    if ([double]::TryParse($value, [ref]$doubleValue)) {
-                        $roundedValue = [Math]::Round($doubleValue, 2)
-                        $NewObject."$($query.QueryName)" = $roundedValue
-                    } else {
-                        $NewObject."$($query.QueryName)" = 0
-                    }
-                } else {
-                    $NewObject."$($query.QueryName)" = $value
-                }
+                # If parsing fails, just set it to "0.00"
+                $NewObject."$($query.QueryName)" = "0.00"
+            }
+    } else {
+        $NewObject."$($query.QueryName)" = $value
+    }
             }
         } else {
             # No rows returned, set to 0 as a valid scenario
