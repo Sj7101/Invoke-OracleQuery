@@ -72,6 +72,8 @@ function Populate-DatabaseQueryResults {
 
     try {
         foreach ($query in $DBObject.Queries) {
+            Write-Host "Running query '$($query.QueryName)' on $($DBObject.DBName)"
+
             $cmd = $conn.CreateCommand()
             $cmd.CommandText = $query.Query
 
@@ -84,35 +86,51 @@ function Populate-DatabaseQueryResults {
                     $reader.GetName($i)
                 }
 
-            while ($reader.Read()) {
-                $row = @{}
-                for ($i=0; $i -lt $reader.FieldCount; $i++) {
-                    if ($reader.IsDBNull($i)) {
-                        $value = $null
-                    } else {
-                        # Use GetOracleValue instead of GetValue
-                        $oracleVal = $reader.GetOracleValue($i)
-                        # Convert it to a string representation
-                        $value = $oracleVal.ToString()
+                while ($reader.Read()) {
+                    $row = @{}
+                    for ($i=0; $i -lt $reader.FieldCount; $i++) {
+                        if ($reader.IsDBNull($i)) {
+                            $value = $null
+                        } else {
+                            # Retrieve Oracle-specific value and convert to string
+                            $oracleVal = $reader.GetOracleValue($i)
+                            $value = $oracleVal.ToString()
+                        }
+                        $row[$cols[$i]] = $value
                     }
-                    $row[$cols[$i]] = $value
+                    $results += $row
                 }
-                $results += $row
-            }
                 $reader.Close()
-
             } catch {
                 Write-Error "Query execution failed for '$($query.QueryName)' on $($DBObject.DBName): $_"
+                # Set the property to indicate failure
+                $NewObject."$($query.QueryName)" = "failed to query host"
+                # Move to the next query since this one failed
+                continue
             } finally {
                 $cmd.Dispose()
             }
-            # Assigning the last column of the last row to the object property
-            if ($results.Count -gt 0) {
+
+            # Now check the results
+            Write-Host "Rows returned for '$($query.QueryName)': $($results.Count)"
+            Write-Host "Columns returned: $($cols.Count) -> $($cols -join ', ')"
+
+            if ($results.Count -gt 0 -and $cols.Count -gt 0) {
                 $lastRow = $results[-1]
                 $lastCol = $cols[-1]
-                $NewObject."$($query.QueryName)" = $lastRow[$lastCol]
+                $value = $lastRow[$lastCol]
+
+                Write-Host "Last column value: '$value'"
+
+                # If the value is null or empty, treat as failed
+                if ([string]::IsNullOrEmpty($value)) {
+                    $NewObject."$($query.QueryName)" = "failed to query host"
+                } else {
+                    $NewObject."$($query.QueryName)" = $value
+                }
             } else {
-                # No results returned, so set it to "failed to query host"
+                # No rows or no columns
+                Write-Host "No data returned or no columns found for '$($query.QueryName)'."
                 $NewObject."$($query.QueryName)" = "failed to query host"
             }
         }
@@ -125,6 +143,7 @@ function Populate-DatabaseQueryResults {
 
     return $NewObject
 }
+
 
 # Main logic: Iterate through each database and process it
 foreach ($db in $Script:Config.DataBases) {
