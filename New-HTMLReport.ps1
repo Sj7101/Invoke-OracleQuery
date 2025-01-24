@@ -1,11 +1,65 @@
 function Build-HTMLReport {
-    param(
+    param (
         [Parameter(Mandatory = $true)]
-        [PSCustomObject[]]$CustomObjects,   # single array of PSCustomObject
-        [string]$Description,
-        [string]$FooterText
+        [array]$CustomObjects,  # Array of arrays of PowerShell custom objects in a specific order
+
+        [Parameter(Mandatory = $true)]
+        [string]$Description,   # Text before the tables
+
+        [Parameter(Mandatory = $true)]
+        [string]$FooterText     # Text after the tables
     )
 
+    #-------------------------------------------
+    # Helper function to build HTML for one array
+    # of PSCustomObjects. This returns a string
+    # containing a <div class="table-container">
+    # block with a table.
+    #-------------------------------------------
+    function Get-TableHtml {
+        param(
+            [Parameter(Mandatory)]
+            [PSObject[]]$ObjectArray,
+            [string]$Heading = "Untitled"
+        )
+
+        # If the array is empty, return nothing
+        if (!$ObjectArray) { return "" }
+
+        # Create a snippet with <h2> + one table
+        $htmlSnippet = @"
+    <div class="table-container">
+        <h2>$Heading</h2>
+        <table>
+            <tr>
+"@
+
+        # Build a table header from the first object's properties
+        $firstObj = $ObjectArray[0]
+        foreach ($prop in $firstObj.PSObject.Properties.Name) {
+            $htmlSnippet += "<th>$prop</th>"
+        }
+        $htmlSnippet += "</tr>"
+
+        # Rows for each object in this array
+        foreach ($row in $ObjectArray) {
+            $htmlSnippet += "<tr>"
+            foreach ($prop in $row.PSObject.Properties.Name) {
+                $value = $row.$prop
+                # No conditional coloring for now - just a normal cell
+                $htmlSnippet += "<td>$value</td>"
+            }
+            $htmlSnippet += "</tr>"
+        }
+
+        $htmlSnippet += "</table></div>"
+
+        return $htmlSnippet
+    }
+
+    #-------------------------------------------
+    # Start the full HTML Document
+    #-------------------------------------------
     $html = @"
 <!DOCTYPE html>
 <html lang="en">
@@ -21,90 +75,57 @@ function Build-HTMLReport {
         th, td { border: 1px solid black; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
         pre { white-space: pre-wrap; font-size: 16px; }
-        .red { background-color: #ffcccc; }
-        .yellow { background-color: #ffffcc; }
-        .green { background-color: #ccffcc; }
     </style>
 </head>
 <body>
-<h1>Custom HTML Report</h1>
+    <h1>Custom HTML Report</h1>
 
-<pre>
+    <pre>
 $Description
-</pre>
+    </pre>
 
-<div class="container">
+    <div class="container">
 "@
 
-    # Create a separate table for each object in $CustomObjects
-    foreach ($obj in $CustomObjects) {
-        # You can customize the heading however you want
-        $tableHeading = $obj.Name  # or any property you'd like to use as a title
-
-        $html += @"
-    <div class="table-container">
-        <h2>$tableHeading</h2>
-        <table>
-"@
-
-        # If you want each property as a row (PropertyName | Value):
-        foreach ($prop in $obj.PSObject.Properties) {
-            # Skip the 'Name' prop if that’s just your heading
-            if ($prop.Name -ne 'Name') {
-                $value = $prop.Value
-
-                # Apply color logic if you want. For example, if property is 'PercentFree':
-                $cellClass = ""
-                if ($prop.Name -eq "PercentFree") {
-                    $percentValue = [double]($value -replace '[^0-9.]', '')
-                    if    ($percentValue -ge 0 -and $percentValue -le 20) { $cellClass = "red" }
-                    elseif($percentValue -gt 20 -and $percentValue -le 30){ $cellClass = "yellow" }
-                    elseif($percentValue -gt 30 -and $percentValue -le 40){ $cellClass = "green" }
-                }
-
-                $html += if ($cellClass) {
-                    "<tr><td>$($prop.Name)</td><td class='$cellClass'>$value</td></tr>"
-                }
-                else {
-                    "<tr><td>$($prop.Name)</td><td>$value</td></tr>"
-                }
-            }
-        }
-
-        $html += "</table></div>"
+    #-------------------------------------------
+    # Build tables in the desired order:
+    #   0 -> All Objects
+    #   1 -> INC
+    #   2 -> CHG
+    #   3 -> Patching
+    #-------------------------------------------
+    if ($CustomObjects.Count -ge 1) {
+        $html += Get-TableHtml -ObjectArray $CustomObjects[0] -Heading "All Objects"
+    }
+    if ($CustomObjects.Count -ge 2) {
+        $html += Get-TableHtml -ObjectArray $CustomObjects[1] -Heading "INC Objects"
+    }
+    if ($CustomObjects.Count -ge 3) {
+        $html += Get-TableHtml -ObjectArray $CustomObjects[2] -Heading "CHG Objects"
+    }
+    if ($CustomObjects.Count -ge 4) {
+        $html += Get-TableHtml -ObjectArray $CustomObjects[3] -Heading "Patching"
     }
 
+    #-------------------------------------------
+    # Close container and add footer
+    #-------------------------------------------
     $html += @"
-</div>
+    </div>  <!-- end .container -->
 
-<pre>
+    <pre>
 $FooterText
-</pre>
+    </pre>
 
 </body>
 </html>
 "@
 
+    #-------------------------------------------
+    # Write HTML to file
+    #-------------------------------------------
     $OutputPath = "G:\Users\Shawn\Desktop\CustomReport.html"
     $html | Out-File -FilePath $OutputPath -Encoding utf8
+
     Write-Host "HTML report generated at $OutputPath"
 }
-
-# Example usage:
-$Description = @"
-This is the description at the top.
-"@
-
-$FooterText = @"
-This is the footer text below.
-"@
-
-# Each PSCustomObject will appear as its own table
-$allObjects = @(
-    [PSCustomObject]@{ Name = "Server1"; TotalSize = "576 Gb"; UsedSpace = "255.62 Gb"; FreeSpace = "321.16 Gb"; PercentFree = "29 %" },
-    [PSCustomObject]@{ Name = "Server2"; TotalSize = "580 Gb"; UsedSpace = "224.38 Gb"; FreeSpace = "321.16 Gb"; PercentFree = "19 %" },
-    [PSCustomObject]@{ Name = "Server3"; TotalSize = "580 Gb"; UsedSpace = "124.38 Gb"; FreeSpace = "321.16 Gb"; PercentFree = "38 %" },
-    [PSCustomObject]@{ Name = "Server4"; TotalSize = "580 Gb"; UsedSpace = "124.38 Gb"; FreeSpace = "321.16 Gb"; PercentFree = "78 %" }
-)
-
-Build-HTMLReport -CustomObjects $allObjects -Description $Description -FooterText $FooterText
