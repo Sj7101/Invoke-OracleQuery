@@ -80,7 +80,20 @@ FROM
            ) AS max_pdb_storage_val
         FROM database_properties 
         WHERE property_name = 'MAX_PDB_STORAGE'
-        UNION 
-        SELECT 3 FROM dual
+       ) a,
+       v$pdbs b
+WHERE a.max_pdb_storage_val IS NOT NULL;
+
+
+
+SELECT 
+       100 - ROUND((b.total_size / a.max_pdb_storage_val) * 100, 2) AS PDBPCTFULLACTUAL
+FROM
+       (SELECT TO_NUMBER(
+               DECODE(property_value, 'UNLIMITED', NULL, property_value)
+           ) AS max_pdb_storage_val
+        FROM database_properties 
+        WHERE property_name = 'MAX_PDB_STORAGE'
+        AND property_value != 'UNLIMITED'
        ) a,
        v$pdbs b;
