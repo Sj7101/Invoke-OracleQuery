@@ -129,3 +129,25 @@ $FooterText
 
     Write-Host "HTML report generated at $OutputPath"
 }
+
+
+# $ObjectArray is the array of PSCustomObjects (e.g., $allObjects)
+$firstObj = $ObjectArray[0]
+# Build header columns from property names in the first object
+foreach ($prop in $firstObj.PSObject.Properties.Name) {
+    $htmlSnippet += "<th>$prop</th>"
+}
+
+# Then build one row for each object in $ObjectArray
+foreach ($row in $ObjectArray) {
+    $htmlSnippet += "<tr>"
+    foreach ($prop in $row.PSObject.Properties.Name) {
+        $value = $row.$prop
+        $htmlSnippet += "<td>$value</td>"
+    }
+    $htmlSnippet += "</tr>"
+}
+
+
+Write-Host "Count of top-level array: $($allObjects.Count)"
+Write-Host "Type of the first item: $($allObjects[0].GetType().FullName)"
