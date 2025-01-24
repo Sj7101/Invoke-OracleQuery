@@ -1,7 +1,7 @@
 function Build-HTMLReport {
     param(
         [Parameter(Mandatory = $true)]
-        [PSCustomObject[]]$CustomObjects,  # multiple objects -> one table *per* object, 2-wide layout
+        [PSCustomObject[]]$CustomObjects,  # multiple objects -> one table per object, 2-wide layout
 
         [Parameter(Mandatory = $false)]
         [PSCustomObject]$ServiceNow,       # single object -> one table only
@@ -16,7 +16,6 @@ function Build-HTMLReport {
 
     #---------------------------------------------------------------------
     # Helper 1: Build multiple tables (one per object) for an array
-    #           This is used for $CustomObjects, each item is a separate table.
     #---------------------------------------------------------------------
     function Build-MultiObjectTables {
         param(
@@ -26,35 +25,25 @@ function Build-HTMLReport {
 
         if (!$ObjArray -or $ObjArray.Count -eq 0) { return "" }
 
-        # We'll add an H1 or H2 heading for this block
         $htmlBlock = @"
     <div style="width:100%">
         <h1>$SectionHeading</h1>
     </div>
 "@
 
-        # For each object in the array, build a separate table
         foreach ($obj in $ObjArray) {
-            # We'll use the object’s 'Name' property (if any) for the table <h2>:
             $tableHeading = $obj.Name
-
             $htmlBlock += @"
     <div class="table-container">
         <h2>$tableHeading</h2>
         <table>
 "@
-            # For each property in the PSCustomObject, create rows: PropertyName | Value
             foreach ($prop in $obj.PSObject.Properties) {
-                if ($prop.Name -eq 'Name') {
-                    # We already used 'Name' as the table heading
-                    continue
-                }
-
+                if ($prop.Name -eq 'Name') { continue }
                 $propName  = $prop.Name
                 $propValue = $prop.Value
 
-                # If the property is 'Link' or 'URL', make it a clickable link
-                # but display the same object's Name as the link text
+                # If the property is 'Link' or 'URL', convert to clickable link
                 if ($propName -in @('Link','URL')) {
                     $propValue = "<a href='$propValue' target='_blank'>$($obj.Name)</a>"
                 }
@@ -69,9 +58,6 @@ function Build-HTMLReport {
 
     #---------------------------------------------------------------------
     # Helper 2: Build a single table for a single PSCustomObject
-    #           (all properties in one table, in a single row or row-based)
-    #           We'll do a standard row of headers, then one row of values.
-    #           If you prefer "PropertyName | Value" rows, we can do that too.
     #---------------------------------------------------------------------
     function Build-SingleObjectTable {
         param(
@@ -79,17 +65,10 @@ function Build-HTMLReport {
             [string]$SectionHeading
         )
 
-        if (!$Obj) { return "" }  # If null, return no HTML
+        if (!$Obj) { return "" }
 
-        # We'll gather all property names from $Obj
         $properties = $Obj.PSObject.Properties.Name
 
-        # Option A) Each property is a column in one row
-        #           (one <tr> total for the data).
-        # Option B) Each property is its own row. 
-        # Let’s do Option A for demonstration (column-based).
-        
-        # Start the block with a heading
         $htmlBlock = @"
     <div style="width:100%">
         <h1>$SectionHeading</h1>
@@ -105,12 +84,10 @@ function Build-HTMLReport {
         }
         $htmlBlock += "</tr><tr>"
 
-        # Create one row of <td> for the object’s values
+        # Create one row of <td> for the object's values
         foreach ($p in $properties) {
             $propValue = $Obj.$p
 
-            # If the property name is Link or URL, turn it into a clickable link
-            # but display the Name property as link text
             if ($p -in @('Link','URL')) {
                 $propValue = "<a href='$propValue' target='_blank'>$($Obj.Name)</a>"
             }
@@ -175,9 +152,14 @@ $FooterText
 </html>
 "@
 
-    # Output to D:\PowerShell\Test\CustomReport.html
+    #---------------------------------------------------------------------
+    # Output to file AND return the HTML string
+    #---------------------------------------------------------------------
     $OutputPath = "D:\PowerShell\Test\CustomReport.html"
     $html | Out-File -FilePath $OutputPath -Encoding utf8
 
     Write-Host "HTML report generated at $OutputPath"
+
+    # Return the HTML so the caller can use it in Send-MailMessage, etc.
+    return $html
 }
