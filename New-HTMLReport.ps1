@@ -1,13 +1,70 @@
 function Build-HTMLReport {
     param(
         [Parameter(Mandatory = $true)]
-        [PSCustomObject[]]$CustomObjects,  # Main array of PSCustomObject
+        [PSCustomObject[]]$CustomObjects,   # Main array
+
         [Parameter(Mandatory = $false)]
-        [PSCustomObject[]]$ServiceNow,     # Optional second array
+        [PSCustomObject[]]$ServiceNow,      # Below main array
+
+        [Parameter(Mandatory = $false)]
+        [PSCustomObject[]]$TASKS,           # Below ServiceNow
+
+        [Parameter(Mandatory = $false)]
+        [PSCustomObject[]]$PATCHING,        # Last table
+
         [string]$Description,
         [string]$FooterText
     )
 
+    # Helper function to build one table per object in a given array
+    function Build-ObjectTables {
+        param(
+            [PSCustomObject[]]$Objects,
+            [string]$Heading       # e.g. "ServiceNow Items"
+        )
+
+        if (!$Objects -or $Objects.Count -eq 0) {
+            return ""  # No HTML if array is empty or null
+        }
+
+        $htmlSnippet = @"
+    <div style="width:100%">
+        <h1>$Heading</h1>
+    </div>
+"@
+
+        foreach ($obj in $Objects) {
+            # Use the 'Name' property as the table heading if present
+            $tableHeading = $obj.Name
+
+            $htmlSnippet += @"
+    <div class="table-container">
+        <h2>$tableHeading</h2>
+        <table>
+"@
+            foreach ($prop in $obj.PSObject.Properties) {
+                # Skip the 'Name' property since we used it as <h2>
+                if ($prop.Name -eq 'Name') { continue }
+
+                $propName  = $prop.Name
+                $propValue = $prop.Value
+
+                # If the property is 'Link' or 'URL', turn $obj.Name into clickable text
+                if ($propName -in @('Link','URL')) {
+                    $propValue = "<a href='$propValue' target='_blank'>$($obj.Name)</a>"
+                }
+
+                $htmlSnippet += "<tr><td>$propName</td><td>$propValue</td></tr>"
+            }
+            $htmlSnippet += "</table></div>"
+        }
+
+        return $htmlSnippet
+    }
+
+    #-------------------------------
+    # Start the main HTML document
+    #-------------------------------
     $html = @"
 <!DOCTYPE html>
 <html lang="en">
@@ -35,85 +92,35 @@ $Description
 <div class="container">
 "@
 
-    #--- 1) Build tables for the main array ($CustomObjects) ---
-    foreach ($obj in $CustomObjects) {
-        # Use the 'Name' property (if it exists) as a heading
-        $tableHeading = $obj.Name
+    # 1) Main data (CustomObjects)
+    $html += Build-ObjectTables -Objects $CustomObjects -Heading "Main Items"
 
-        $html += @"
-    <div class="table-container">
-        <h2>$tableHeading</h2>
-        <table>
-"@
-        # Create one row per property (2 columns: PropertyName | Value)
-        foreach ($prop in $obj.PSObject.Properties) {
-            if ($prop.Name -eq 'Name') { 
-                # We already used the Name as the heading, so skip showing it again
-                continue 
-            }
-
-            $propName  = $prop.Name
-            $propValue = $prop.Value
-
-            # If the property name is "Link" (or "URL"), 
-            # we turn the object's Name into the clickable text.
-            if ($propName -eq 'Link' -or $propName -eq 'URL') {
-                # $propValue should be the actual URL (like "https://whatever")
-                # We use $obj.Name as the link text
-                $propValue = "<a href='$propValue' target='_blank'>$($obj.Name)</a>"
-            }
-
-            $html += "<tr><td>$propName</td><td>$propValue</td></tr>"
-        }
-
-        $html += "</table></div>"
+    # 2) ServiceNow
+    if ($ServiceNow) {
+        $html += Build-ObjectTables -Objects $ServiceNow -Heading "ServiceNow Items"
     }
 
-    #--- 2) Build tables for the ServiceNow array (if passed) ---
-    if ($ServiceNow -and $ServiceNow.Count -gt 0) {
-        $html += @"
-    <div style="width:100%">
-        <h1>ServiceNow Items</h1>
-    </div>
-"@
-        foreach ($obj in $ServiceNow) {
-            $tableHeading = $obj.Name
-
-            $html += @"
-    <div class="table-container">
-        <h2>$tableHeading</h2>
-        <table>
-"@
-            foreach ($prop in $obj.PSObject.Properties) {
-                if ($prop.Name -eq 'Name') { continue }
-
-                $propName  = $prop.Name
-                $propValue = $prop.Value
-
-                # Same approach for link-type fields
-                if ($propName -eq 'Link' -or $propName -eq 'URL') {
-                    $propValue = "<a href='$propValue' target='_blank'>$($obj.Name)</a>"
-                }
-
-                $html += "<tr><td>$propName</td><td>$propValue</td></tr>"
-            }
-
-            $html += "</table></div>"
-        }
+    # 3) TASKS
+    if ($TASKS) {
+        $html += Build-ObjectTables -Objects $TASKS -Heading "TASKS"
     }
 
+    # 4) PATCHING
+    if ($PATCHING) {
+        $html += Build-ObjectTables -Objects $PATCHING -Heading "Patching"
+    }
+
+    # Close containers + Footer
     $html += @"
 </div>
-
 <pre>
 $FooterText
 </pre>
-
 </body>
 </html>
 "@
 
-
+    # Write the HTML file
     $OutputPath = "D:\PowerShell\Test\CustomReport.html"
     $html | Out-File -FilePath $OutputPath -Encoding utf8
 
