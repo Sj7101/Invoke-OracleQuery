@@ -3,7 +3,7 @@ function Build-HTMLReport {
         [Parameter(Mandatory = $true)]
         [PSCustomObject[]]$CustomObjects,  # Main array of PSCustomObject
         [Parameter(Mandatory = $false)]
-        [PSCustomObject[]]$ServiceNow,     # Secondary array of PSCustomObject (optional)
+        [PSCustomObject[]]$ServiceNow,     # Optional second array
         [string]$Description,
         [string]$FooterText
     )
@@ -47,16 +47,20 @@ $Description
 "@
         # Create one row per property (2 columns: PropertyName | Value)
         foreach ($prop in $obj.PSObject.Properties) {
-            # Optionally skip the 'Name' prop if used only as a heading
-            if ($prop.Name -eq 'Name') { continue }
+            if ($prop.Name -eq 'Name') { 
+                # We already used the Name as the heading, so skip showing it again
+                continue 
+            }
 
             $propName  = $prop.Name
             $propValue = $prop.Value
 
-            # If the property value starts with http:// or https://,
-            # we'll make it a clickable link. Otherwise, just plain text.
-            if ($propValue -is [string] -and $propValue -match '^https?://') {
-                $propValue = "<a href='$propValue' target='_blank'>$propValue</a>"
+            # If the property name is "Link" (or "URL"), 
+            # we turn the object's Name into the clickable text.
+            if ($propName -eq 'Link' -or $propName -eq 'URL') {
+                # $propValue should be the actual URL (like "https://whatever")
+                # We use $obj.Name as the link text
+                $propValue = "<a href='$propValue' target='_blank'>$($obj.Name)</a>"
             }
 
             $html += "<tr><td>$propName</td><td>$propValue</td></tr>"
@@ -65,18 +69,15 @@ $Description
         $html += "</table></div>"
     }
 
-    #--- 2) Build tables for the ServiceNow array (if it’s passed) ---
-    #    (Same layout approach: one table per object)
+    #--- 2) Build tables for the ServiceNow array (if passed) ---
     if ($ServiceNow -and $ServiceNow.Count -gt 0) {
-        # You could add a new heading or just continue in the same container
         $html += @"
     <div style="width:100%">
         <h1>ServiceNow Items</h1>
     </div>
 "@
-
         foreach ($obj in $ServiceNow) {
-            $tableHeading = $obj.Name  # or maybe $obj.Ticket, or whatever you want as the heading
+            $tableHeading = $obj.Name
 
             $html += @"
     <div class="table-container">
@@ -84,15 +85,14 @@ $Description
         <table>
 "@
             foreach ($prop in $obj.PSObject.Properties) {
-                # If your heading property is also 'Name' or something else, skip it if you want
                 if ($prop.Name -eq 'Name') { continue }
 
                 $propName  = $prop.Name
                 $propValue = $prop.Value
 
-                # Convert to clickable link if it starts with http:// or https://
-                if ($propValue -is [string] -and $propValue -match '^https?://') {
-                    $propValue = "<a href='$propValue' target='_blank'>$propValue</a>"
+                # Same approach for link-type fields
+                if ($propName -eq 'Link' -or $propName -eq 'URL') {
+                    $propValue = "<a href='$propValue' target='_blank'>$($obj.Name)</a>"
                 }
 
                 $html += "<tr><td>$propName</td><td>$propValue</td></tr>"
@@ -112,6 +112,7 @@ $FooterText
 </body>
 </html>
 "@
+
 
     $OutputPath = "D:\PowerShell\Test\CustomReport.html"
     $html | Out-File -FilePath $OutputPath -Encoding utf8
