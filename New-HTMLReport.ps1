@@ -1,7 +1,9 @@
 function Build-HTMLReport {
     param(
         [Parameter(Mandatory = $true)]
-        [PSCustomObject[]]$CustomObjects,   # single array of PSCustomObject
+        [PSCustomObject[]]$CustomObjects,  # Main array of PSCustomObject
+        [Parameter(Mandatory = $false)]
+        [PSCustomObject[]]$ServiceNow,     # Secondary array of PSCustomObject (optional)
         [string]$Description,
         [string]$FooterText
     )
@@ -21,9 +23,6 @@ function Build-HTMLReport {
         th, td { border: 1px solid black; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
         pre { white-space: pre-wrap; font-size: 16px; }
-        .red { background-color: #ffcccc; }
-        .yellow { background-color: #ffffcc; }
-        .green { background-color: #ccffcc; }
     </style>
 </head>
 <body>
@@ -36,42 +35,71 @@ $Description
 <div class="container">
 "@
 
-    # Create a separate table for each object in $CustomObjects
+    #--- 1) Build tables for the main array ($CustomObjects) ---
     foreach ($obj in $CustomObjects) {
-        # You can customize the heading however you want
-        $tableHeading = $obj.Name  # or any property you'd like to use as a title
+        # Use the 'Name' property (if it exists) as a heading
+        $tableHeading = $obj.Name
 
         $html += @"
     <div class="table-container">
         <h2>$tableHeading</h2>
         <table>
 "@
-
-        # If you want each property as a row (PropertyName | Value):
+        # Create one row per property (2 columns: PropertyName | Value)
         foreach ($prop in $obj.PSObject.Properties) {
-            # Skip the 'Name' prop if thatâ€™s just your heading
-            if ($prop.Name -ne 'Name') {
-                $value = $prop.Value
+            # Optionally skip the 'Name' prop if used only as a heading
+            if ($prop.Name -eq 'Name') { continue }
 
-                # Apply color logic if you want. For example, if property is 'PercentFree':
-                $cellClass = ""
-                if ($prop.Name -eq "PercentFree") {
-                    $percentValue = [double]($value -replace '[^0-9.]', '')
-                    if    ($percentValue -ge 0 -and $percentValue -le 20) { $cellClass = "red" }
-                    elseif($percentValue -gt 20 -and $percentValue -le 30){ $cellClass = "yellow" }
-                    elseif($percentValue -gt 30 -and $percentValue -le 40){ $cellClass = "green" }
-                }
+            $propName  = $prop.Name
+            $propValue = $prop.Value
 
-                $html += if ($cellClass) {
-                    "<tr><td>$($prop.Name)</td><td class='$cellClass'>$value</td></tr>"
-                }
-                else {
-                    "<tr><td>$($prop.Name)</td><td>$value</td></tr>"
-                }
+            # If the property value starts with http:// or https://,
+            # we'll make it a clickable link. Otherwise, just plain text.
+            if ($propValue -is [string] -and $propValue -match '^https?://') {
+                $propValue = "<a href='$propValue' target='_blank'>$propValue</a>"
             }
+
+            $html += "<tr><td>$propName</td><td>$propValue</td></tr>"
         }
 
         $html += "</table></div>"
+    }
+
+    #--- 2) Build tables for the ServiceNow array (if it’s passed) ---
+    #    (Same layout approach: one table per object)
+    if ($ServiceNow -and $ServiceNow.Count -gt 0) {
+        # You could add a new heading or just continue in the same container
+        $html += @"
+    <div style="width:100%">
+        <h1>ServiceNow Items</h1>
+    </div>
+"@
+
+        foreach ($obj in $ServiceNow) {
+            $tableHeading = $obj.Name  # or maybe $obj.Ticket, or whatever you want as the heading
+
+            $html += @"
+    <div class="table-container">
+        <h2>$tableHeading</h2>
+        <table>
+"@
+            foreach ($prop in $obj.PSObject.Properties) {
+                # If your heading property is also 'Name' or something else, skip it if you want
+                if ($prop.Name -eq 'Name') { continue }
+
+                $propName  = $prop.Name
+                $propValue = $prop.Value
+
+                # Convert to clickable link if it starts with http:// or https://
+                if ($propValue -is [string] -and $propValue -match '^https?://') {
+                    $propValue = "<a href='$propValue' target='_blank'>$propValue</a>"
+                }
+
+                $html += "<tr><td>$propName</td><td>$propValue</td></tr>"
+            }
+
+            $html += "</table></div>"
+        }
     }
 
     $html += @"
@@ -85,26 +113,8 @@ $FooterText
 </html>
 "@
 
-    $OutputPath = "G:\Users\Shawn\Desktop\CustomReport.html"
+    $OutputPath = "D:\PowerShell\Test\CustomReport.html"
     $html | Out-File -FilePath $OutputPath -Encoding utf8
+
     Write-Host "HTML report generated at $OutputPath"
 }
-
-# Example usage:
-$Description = @"
-This is the description at the top.
-"@
-
-$FooterText = @"
-This is the footer text below.
-"@
-
-# Each PSCustomObject will appear as its own table
-$allObjects = @(
-    [PSCustomObject]@{ Name = "Server1"; TotalSize = "576 Gb"; UsedSpace = "255.62 Gb"; FreeSpace = "321.16 Gb"; PercentFree = "29 %" },
-    [PSCustomObject]@{ Name = "Server2"; TotalSize = "580 Gb"; UsedSpace = "224.38 Gb"; FreeSpace = "321.16 Gb"; PercentFree = "19 %" },
-    [PSCustomObject]@{ Name = "Server3"; TotalSize = "580 Gb"; UsedSpace = "124.38 Gb"; FreeSpace = "321.16 Gb"; PercentFree = "38 %" },
-    [PSCustomObject]@{ Name = "Server4"; TotalSize = "580 Gb"; UsedSpace = "124.38 Gb"; FreeSpace = "321.16 Gb"; PercentFree = "78 %" }
-)
-
-Build-HTMLReport -CustomObjects $allObjects -Description $Description -FooterText $FooterText
