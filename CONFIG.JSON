@@ -72,27 +72,15 @@
 	]
 }
 
-SELECT
-       b.name, 
-       vi.host_name, 
-       vi.instance_name,
-       TO_NUMBER(b.total_size)/1024/1024/1024 AS pdb_total_size_oracle_GB,
-       TO_NUMBER(a.max_pdb_storage_val)/1024/1024/1024 AS MAX_PDB_STORAGE_GB,
-       ROUND((b.total_size/a.max_pdb_storage_val)*100, 2) - 100 AS PDBPCTFULLACTUAL,
-       TO_NUMBER(a.data_size + b.temp_size)/1024/1024/1024 AS SumDFSize_GB
+SELECT 
+       100 - ROUND((b.total_size / a.max_pdb_storage_val) * 100, 2) AS PDBPCTFULLACTUAL
 FROM
-       (SELECT MAX(max_pdb_storage_val) AS max_pdb_storage_val 
-        FROM (
-            SELECT TO_NUMBER(
-                DECODE(property_value, 'UNLIMITED', 1, NULL, 2, property_value)) AS max_pdb_storage_val
-            FROM database_properties 
-            WHERE property_name = 'MAX_PDB_STORAGE' 
-            UNION 
-            SELECT 3 AS max_pdb_storage_val 
-            FROM dual
-        )
+       (SELECT MAX(
+               TO_NUMBER(DECODE(property_value, 'UNLIMITED', 1, NULL, 2, property_value))
+           ) AS max_pdb_storage_val
+        FROM database_properties 
+        WHERE property_name = 'MAX_PDB_STORAGE'
+        UNION 
+        SELECT 3 FROM dual
        ) a,
-       v$pdbs b,
-       (SELECT SUM(bytes) AS data_size FROM dba_data_files) a,
-       (SELECT NVL(SUM(bytes), 0) AS temp_size FROM dba_temp_files) b,
-       v$instance vi;
+       v$pdbs b;
