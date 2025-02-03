@@ -68,3 +68,9 @@ function Invoke-OracleQuery {
         }
     }
 }
+
+<#
+
+Register-ScheduledTask -TaskName "ZLShiftTurnOver" -Action (New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File 'D:\PowerShell\ZL Automation\New-ZLShiftTurnOver.ps1'") -Trigger (New-ScheduledTaskTrigger -Daily -At "4:00AM"), (New-ScheduledTaskTrigger -Daily -At "3:00PM") -User "SYSTEM" -RunLevel Highest
+
+#>
